@@ -8,6 +8,11 @@ export default defineConfig(({ mode }) => {
       server: {
         hmr: {
           port: 5174
+        },
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       },
       define: {
