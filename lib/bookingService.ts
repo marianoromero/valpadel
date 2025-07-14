@@ -1,4 +1,17 @@
-import { supabase } from './supabase'
+import { 
+  collection, 
+  doc, 
+  getDocs, 
+  addDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy,
+  Timestamp,
+  DocumentData,
+  QueryDocumentSnapshot 
+} from 'firebase/firestore'
+import { db } from './firebase'
 
 export interface BookingData {
   court: number
@@ -11,82 +24,137 @@ export interface BookingData {
 
 export interface Booking extends BookingData {
   id: string
-  created_at: string
+  created_at: Date
 }
 
 export class BookingService {
+  private static COLLECTION_NAME = 'bookings'
+
+  // Convert Firestore document to Booking object
+  private static docToBooking(doc: QueryDocumentSnapshot<DocumentData>): Booking {
+    const data = doc.data()
+    return {
+      id: doc.id,
+      court: data.court,
+      date: data.date,
+      time: data.time,
+      name: data.name,
+      comment: data.comment || '',
+      secret_key: data.secret_key,
+      created_at: data.created_at?.toDate() || new Date()
+    }
+  }
+
   // Get all bookings for a specific date range
   static async getBookings(startDate: string, endDate: string): Promise<Booking[]> {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('*')
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .order('date', { ascending: true })
-      .order('time', { ascending: true })
-
-    if (error) {
+    try {
+      const bookingsRef = collection(db, this.COLLECTION_NAME)
+      const q = query(
+        bookingsRef,
+        where('date', '>=', startDate),
+        where('date', '<=', endDate),
+        orderBy('date'),
+        orderBy('time')
+      )
+      
+      const querySnapshot = await getDocs(q)
+      return querySnapshot.docs.map(doc => this.docToBooking(doc))
+    } catch (error) {
       console.error('Error fetching bookings:', error)
       throw new Error('Failed to fetch bookings')
     }
-
-    return data || []
   }
 
   // Create a new booking
   static async createBooking(booking: BookingData): Promise<Booking> {
-    const { data, error } = await supabase
-      .from('bookings')
-      .insert(booking)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error creating booking:', error)
-      if (error.code === '23505') { // Unique constraint violation
+    try {
+      // Check if slot is already booked
+      const existingBooking = await this.findBooking(booking.court, booking.date, booking.time)
+      if (existingBooking) {
         throw new Error('Esta pista ya está reservada para ese horario')
+      }
+
+      const bookingsRef = collection(db, this.COLLECTION_NAME)
+      const docRef = await addDoc(bookingsRef, {
+        ...booking,
+        created_at: Timestamp.now()
+      })
+
+      return {
+        id: docRef.id,
+        ...booking,
+        created_at: new Date()
+      }
+    } catch (error) {
+      console.error('Error creating booking:', error)
+      if (error instanceof Error) {
+        throw error
       }
       throw new Error('Failed to create booking')
     }
-
-    return data
   }
 
   // Delete a booking (requires secret key)
   static async deleteBooking(id: string, secretKey: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('bookings')
-      .delete()
-      .eq('id', id)
-      .eq('secret_key', secretKey)
+    try {
+      // First verify the secret key matches
+      const booking = await this.getBookingById(id)
+      if (!booking || booking.secret_key !== secretKey) {
+        throw new Error('Clave incorrecta')
+      }
 
-    if (error) {
+      const docRef = doc(db, this.COLLECTION_NAME, id)
+      await deleteDoc(docRef)
+      return true
+    } catch (error) {
       console.error('Error deleting booking:', error)
+      if (error instanceof Error) {
+        throw error
+      }
       throw new Error('Failed to delete booking')
     }
-
-    return true
   }
 
   // Find booking by court, date, time (for cancellation)
   static async findBooking(court: number, date: string, time: string): Promise<Booking | null> {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('court', court)
-      .eq('date', date)
-      .eq('time', time)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') { // No rows returned
+    try {
+      const bookingsRef = collection(db, this.COLLECTION_NAME)
+      const q = query(
+        bookingsRef,
+        where('court', '==', court),
+        where('date', '==', date),
+        where('time', '==', time)
+      )
+      
+      const querySnapshot = await getDocs(q)
+      if (querySnapshot.empty) {
         return null
       }
+      
+      return this.docToBooking(querySnapshot.docs[0])
+    } catch (error) {
       console.error('Error finding booking:', error)
       throw new Error('Failed to find booking')
     }
+  }
 
-    return data
+  // Get booking by ID
+  static async getBookingById(id: string): Promise<Booking | null> {
+    try {
+      const docRef = doc(db, this.COLLECTION_NAME, id)
+      const bookingsRef = collection(db, this.COLLECTION_NAME)
+      const q = query(bookingsRef, where('__name__', '==', id))
+      
+      const querySnapshot = await getDocs(q)
+      if (querySnapshot.empty) {
+        return null
+      }
+      
+      return this.docToBooking(querySnapshot.docs[0])
+    } catch (error) {
+      console.error('Error getting booking by ID:', error)
+      return null
+    }
   }
 
   // Validate if a time slot is available

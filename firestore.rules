@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Rules for bookings collection
+    match /bookings/{bookingId} {
+      // Allow read access to all users
+      allow read: if true;
+      
+      // Allow create for anyone (since no auth is required)
+      allow create: if request.auth == null 
+        && resource == null
+        && isValidBooking(request.resource.data);
+      
+      // Allow delete only if the secret_key matches
+      allow delete: if request.auth == null 
+        && resource.data.secret_key == request.resource.data.secret_key;
+      
+      // Prevent updates (bookings should only be created or deleted)
+      allow update: if false;
+    }
+    
+    // Helper function to validate booking data
+    function isValidBooking(data) {
+      return data.keys().hasAll(['court', 'date', 'time', 'name', 'secret_key', 'created_at'])
+        && data.court is int 
+        && data.court in [2, 3]
+        && data.date is string
+        && data.time is string
+        && data.time in ['09:00', '10:30', '12:00', '13:30', '16:30', '18:00', '19:30', '21:00']
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 100
+        && data.secret_key is string
+        && data.secret_key.size() == 6
+        && data.secret_key.matches('^[0-9]+$')
+        && (!data.keys().hasAny(['comment']) || data.comment is string)
+        && data.created_at is timestamp;
+    }
+  }
+}
