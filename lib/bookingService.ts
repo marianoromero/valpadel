@@ -141,7 +141,6 @@ export class BookingService {
   // Get booking by ID
   static async getBookingById(id: string): Promise<Booking | null> {
     try {
-      const docRef = doc(db, this.COLLECTION_NAME, id)
       const bookingsRef = collection(db, this.COLLECTION_NAME)
       const q = query(bookingsRef, where('__name__', '==', id))
       

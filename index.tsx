@@ -21,9 +21,6 @@ interface AllBookings {
     [date: string]: CourtBookings;
 }
 
-interface BookingsByDate {
-    [date: string]: Booking[];
-}
 
 interface ModalSlot {
     court: number;
@@ -49,7 +46,6 @@ interface InfoModalContent {
 
 const PADEL_COURTS = [2, 3];
 const TIME_SLOTS = ['09:00', '10:30', '12:00', '13:30', '16:30', '18:00', '19:30', '21:00'];
-const BOOKINGS_KEY = 'valpadel-bookings';
 const MORNING_SLOTS = ['09:00', '10:30', '12:00', '13:30'];
 
 // --- Helper Functions ---
@@ -320,7 +316,6 @@ function App() {
     const weekDays = useMemo(() => getWeekDays(), []);
     const [selectedDayIndex, setSelectedDayIndex] = useState(weekDays.findIndex(d => formatDateKey(d) === formatDateKey(new Date())) > -1 ? weekDays.findIndex(d => formatDateKey(d) === formatDateKey(new Date())) : 0);
     const [bookings, setBookings] = useState<AllBookings>({});
-    const [rawBookings, setRawBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [modalSlot, setModalSlot] = useState<ModalSlot | null>(null);
     const [cancellationSlot, setCancellationSlot] = useState<CancellationModalData | null>(null);
@@ -357,7 +352,6 @@ function App() {
                 const endDate = formatDateKey(weekDays[weekDays.length - 1]);
                 
                 const fetchedBookings = await BookingService.getBookings(startDate, endDate);
-                setRawBookings(fetchedBookings);
                 setBookings(convertBookingsToLegacyFormat(fetchedBookings));
             } catch (error) {
                 console.error("Failed to load bookings from Supabase", error);
@@ -379,7 +373,6 @@ function App() {
             const endDate = formatDateKey(weekDays[weekDays.length - 1]);
             
             const fetchedBookings = await BookingService.getBookings(startDate, endDate);
-            setRawBookings(fetchedBookings);
             setBookings(convertBookingsToLegacyFormat(fetchedBookings));
         } catch (error) {
             console.error("Failed to refresh bookings", error);
