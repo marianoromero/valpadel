@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
+import { BookingService, type Booking } from './lib/bookingService';
 
 // --- Type Definitions ---
 interface BookingDetails {
@@ -18,6 +19,10 @@ interface CourtBookings {
 
 interface AllBookings {
     [date: string]: CourtBookings;
+}
+
+interface BookingsByDate {
+    [date: string]: Booking[];
 }
 
 interface ModalSlot {
@@ -315,94 +320,137 @@ function App() {
     const weekDays = useMemo(() => getWeekDays(), []);
     const [selectedDayIndex, setSelectedDayIndex] = useState(weekDays.findIndex(d => formatDateKey(d) === formatDateKey(new Date())) > -1 ? weekDays.findIndex(d => formatDateKey(d) === formatDateKey(new Date())) : 0);
     const [bookings, setBookings] = useState<AllBookings>({});
+    const [rawBookings, setRawBookings] = useState<Booking[]>([]);
+    const [loading, setLoading] = useState(true);
     const [modalSlot, setModalSlot] = useState<ModalSlot | null>(null);
     const [cancellationSlot, setCancellationSlot] = useState<CancellationModalData | null>(null);
     const [selectedCourt, setSelectedCourt] = useState<number | null>(null);
     const [infoModalContent, setInfoModalContent] = useState<InfoModalContent | null>(null);
 
-    useEffect(() => {
-        try {
-            const storedBookings = localStorage.getItem(BOOKINGS_KEY);
-            if (storedBookings) {
-                setBookings(JSON.parse(storedBookings));
+    // Convert raw bookings to the format expected by the UI
+    const convertBookingsToLegacyFormat = useCallback((bookings: Booking[]): AllBookings => {
+        const result: AllBookings = {};
+        
+        bookings.forEach(booking => {
+            if (!result[booking.date]) {
+                result[booking.date] = {};
             }
-        } catch (error) {
-            console.error("Failed to load bookings from localStorage", error);
-        }
+            if (!result[booking.date][booking.court]) {
+                result[booking.date][booking.court] = {};
+            }
+            result[booking.date][booking.court][booking.time] = {
+                name: booking.name,
+                comment: booking.comment || '',
+                secretKey: booking.secret_key
+            };
+        });
+        
+        return result;
     }, []);
 
-    const saveBookings = useCallback((newBookings: AllBookings) => {
+    // Load bookings from Supabase
+    useEffect(() => {
+        const loadBookings = async () => {
+            try {
+                setLoading(true);
+                const startDate = formatDateKey(weekDays[0]);
+                const endDate = formatDateKey(weekDays[weekDays.length - 1]);
+                
+                const fetchedBookings = await BookingService.getBookings(startDate, endDate);
+                setRawBookings(fetchedBookings);
+                setBookings(convertBookingsToLegacyFormat(fetchedBookings));
+            } catch (error) {
+                console.error("Failed to load bookings from Supabase", error);
+                setInfoModalContent({
+                    title: 'Error de Conexión',
+                    message: 'No se pudieron cargar las reservas. Verifica tu conexión a internet.'
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadBookings();
+    }, [weekDays, convertBookingsToLegacyFormat]);
+
+    const refreshBookings = useCallback(async () => {
         try {
-            localStorage.setItem(BOOKINGS_KEY, JSON.stringify(newBookings));
-            setBookings(newBookings);
+            const startDate = formatDateKey(weekDays[0]);
+            const endDate = formatDateKey(weekDays[weekDays.length - 1]);
+            
+            const fetchedBookings = await BookingService.getBookings(startDate, endDate);
+            setRawBookings(fetchedBookings);
+            setBookings(convertBookingsToLegacyFormat(fetchedBookings));
         } catch (error) {
-            console.error("Failed to save bookings to localStorage", error);
+            console.error("Failed to refresh bookings", error);
         }
-    }, []);
+    }, [weekDays, convertBookingsToLegacyFormat]);
     
     const selectedDate = weekDays[selectedDayIndex] || weekDays[0];
     const dateKey = formatDateKey(selectedDate);
 
-    const handleBookSlot = useCallback((bookingDetails: BookingSubmission) => {
+    const handleBookSlot = useCallback(async (bookingDetails: BookingSubmission) => {
         if (!modalSlot) return;
         const { court, time } = modalSlot;
         
-        const newBookings = JSON.parse(JSON.stringify(bookings));
-        if (!newBookings[dateKey]) {
-            newBookings[dateKey] = {};
+        try {
+            await BookingService.createBooking({
+                court,
+                date: dateKey,
+                time,
+                name: bookingDetails.name,
+                comment: bookingDetails.comment,
+                secret_key: bookingDetails.secretKey
+            });
+            
+            await refreshBookings();
+            setModalSlot(null);
+            setSelectedCourt(court); // Stay on the court view
+            
+            setInfoModalContent({
+                title: 'Reserva Confirmada',
+                message: `Su reserva para la Pista ${court} el ${formatDateKey(modalSlot.date)} a las ${time} ha sido confirmada.`
+            });
+        } catch (error) {
+            console.error("Failed to create booking", error);
+            setInfoModalContent({
+                title: 'Error en la Reserva',
+                message: error instanceof Error ? error.message : 'No se pudo crear la reserva. Inténtelo de nuevo.'
+            });
         }
-        
-        const courtKey = String(court);
-        if (!newBookings[dateKey][courtKey]) {
-            newBookings[dateKey][courtKey] = {};
-        }
-        
-        newBookings[dateKey][courtKey][time] = { 
-            name: bookingDetails.name, 
-            comment: bookingDetails.comment,
-            secretKey: bookingDetails.secretKey
-        };
-        
-        saveBookings(newBookings);
-        setModalSlot(null);
-        setSelectedCourt(court); // Stay on the court view
-    }, [modalSlot, bookings, dateKey, saveBookings]);
+    }, [modalSlot, dateKey, refreshBookings]);
 
-    const handleCancelBooking = useCallback((enteredKey: string) => {
+    const handleCancelBooking = useCallback(async (enteredKey: string) => {
         if (!cancellationSlot) return;
 
         const { date, court, time } = cancellationSlot;
         const keyForDate = formatDateKey(date);
         
-        const bookingToCancel = bookings[keyForDate]?.[String(court)]?.[time];
-        
-        if (bookingToCancel && bookingToCancel.secretKey === enteredKey) {
-            const newBookings = JSON.parse(JSON.stringify(bookings));
+        try {
+            const bookingToCancel = await BookingService.findBooking(court, keyForDate, time);
             
-            delete newBookings[keyForDate][String(court)][time];
-            
-            // Cleanup empty objects
-            if (Object.keys(newBookings[keyForDate][String(court)]).length === 0) {
-                delete newBookings[keyForDate][String(court)];
+            if (bookingToCancel && bookingToCancel.secret_key === enteredKey) {
+                await BookingService.deleteBooking(bookingToCancel.id, enteredKey);
+                await refreshBookings();
+                setCancellationSlot(null);
+                setInfoModalContent({
+                    title: 'Reserva Cancelada',
+                    message: 'Su reserva ha sido cancelada correctamente, gracias'
+                });
+            } else {
+                setInfoModalContent({
+                    title: 'Clave Incorrecta',
+                    message: 'Su clave es incorrecta, la reserva no ha podido ser cancelada'
+                });
             }
-            if (Object.keys(newBookings[keyForDate]).length === 0) {
-                delete newBookings[keyForDate];
-            }
-            
-            saveBookings(newBookings);
-            setCancellationSlot(null);
+        } catch (error) {
+            console.error("Failed to cancel booking", error);
             setInfoModalContent({
-                title: 'Reserva Cancelada',
-                message: 'Su reserva ha sido cancelada correctamente, gracias'
-            });
-
-        } else {
-            setInfoModalContent({
-                title: 'Clave Incorrecta',
-                message: 'Su clave es incorrecta, la reserva no ha podido ser cancelada'
+                title: 'Error al Cancelar',
+                message: 'No se pudo cancelar la reserva. Inténtelo de nuevo.'
             });
         }
-    }, [cancellationSlot, bookings, saveBookings]);
+    }, [cancellationSlot, refreshBookings]);
 
     const changeDay = (offset: number) => {
         setSelectedDayIndex(prev => {
@@ -434,7 +482,12 @@ function App() {
                     <button onClick={() => changeDay(1)} disabled={selectedDayIndex === weekDays.length - 1}>&gt;</button>
                 </div>
 
-                {selectedCourt === null ? (
+                {loading ? (
+                    <div className="loading-container">
+                        <div className="loading-spinner"></div>
+                        <p>Cargando reservas...</p>
+                    </div>
+                ) : selectedCourt === null ? (
                     <CourtSelectionView onSelectCourt={setSelectedCourt} />
                 ) : (
                     <TimeSlotView
