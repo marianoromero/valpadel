@@ -1,9 +1,10 @@
-const CACHE_NAME = 'valpadel-cache-v3';
-const BASE_URL = self.location.pathname.includes('/valpadel/') ? '/valpadel/' : '/';
+const CACHE_NAME = 'valpadel-cache-v4';
+const BASE_URL = '/valpadel/';
 const urlsToCache = [
   BASE_URL,
   BASE_URL + 'index.html',
-  BASE_URL + 'index.css',
+  BASE_URL + 'assets/index.css',
+  BASE_URL + 'assets/index.js',
   BASE_URL + 'ValPadelLogo.png',
   BASE_URL + 'logo192.png',
   BASE_URL + 'logo512.png',
@@ -24,40 +25,39 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Return cached version if available
         if (response) {
           return response;
         }
 
-        // For navigation requests, always return index.html (SPA behavior)
-        if (event.request.mode === 'navigate') {
-          return caches.match(BASE_URL + 'index.html');
+        // For navigation requests, always return index.html
+        if (event.request.mode === 'navigate' || 
+            event.request.headers.get('accept').includes('text/html')) {
+          return fetch(BASE_URL + 'index.html')
+            .then(response => {
+              return response;
+            })
+            .catch(() => {
+              return caches.match(BASE_URL + 'index.html');
+            });
         }
 
-        // For other requests, try to fetch from network
-        return fetch(event.request).then(
-          response => {
-            // Don't cache non-successful responses
-            if(!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
+        // For other requests, try network first, then cache
+        return fetch(event.request)
+          .then(response => {
+            if (response.status === 200) {
+              const responseToCache = response.clone();
+              caches.open(CACHE_NAME)
+                .then(cache => {
+                  cache.put(event.request, responseToCache);
+                });
             }
-
-            // Clone and cache the response
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
             return response;
-          }
-        ).catch(() => {
-          // If network fails and it's a navigation request, return index.html
-          if (event.request.mode === 'navigate') {
-            return caches.match(BASE_URL + 'index.html');
-          }
-        });
+          })
+          .catch(() => {
+            return caches.match(event.request);
+          });
       })
-    );
+  );
 });
 
 self.addEventListener('activate', event => {
