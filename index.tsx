@@ -131,15 +131,20 @@ const SideMenu = ({ isOpen, onClose, bookings, weekDays }: { isOpen: boolean; on
         },
         {
             question: "¿Cuándo puedo reservar?",
-            answer: "Puedes reservar para cualquier día de la semana actual. Las reservas están disponibles desde las 9:00 hasta las 22:30."
+            answer: "Las reservas de cada semana se abren cada lunes a las 00:00. Puedes reservar para cualquier día de la semana actual. Las franjas de reservas van desde las 9:00 hasta las 22:30."
         },
         {
             question: "¿Qué pasa si olvido mi clave?",
-            answer: "La clave es necesaria para cancelar reservas. Si la olvidas, contacta con el administrador del club para obtener ayuda."
+            answer: "La clave es necesaria para cancelar reservas. Si la olvidas y quieres cancelar, intenta comunicarlo en los grupos de Whatsapp de pádel de la comunidad."
+
         },
         {
-            question: "¿Puedo reservar varias pistas?",
-            answer: "Sí, puedes hacer múltiples reservas seleccionando diferentes horarios y pistas según disponibilidad."
+            question: "¿Puedo reservar dos franjas seguidas de una pista?",
+            answer: "Como poder, la aplicación lo permite, pero no es lo ideal. Excepcionalmente en épocas de calor, si quieres empezar a las 20:00 en vez de a las 19:30 por ejemplo, reserva a las 19:30 y deja un comentario avisando que comienzas a las 20:00 (siempre y cuando la franja de las 21:00 no esté ya reservada en ese momento)."
+        },
+          {
+            question: "Quiero reservar todos los Martes a las 21:00, ¿no puedo?",
+            answer: "No de forma automática. Tendrás que hacer una nueva reserva cada semana."
         }
     ];
 
