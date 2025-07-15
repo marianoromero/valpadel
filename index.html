@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/ValPadelLogo.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon_io/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon_io/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon_io/favicon-32x32.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ValPadel</title>
     <meta name="description" content="Reserva de pistas de pádel ValPadel">
@@ -10,7 +12,7 @@
     <!-- PWA meta tags -->
     <meta name="theme-color" content="#042940">
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="logo192.png">
+    <link rel="apple-touch-icon" href="/favicon_io/apple-touch-icon.png">
 
     <link rel="stylesheet" href="index.css?v=2">
 <script type="importmap">
@@ -26,18 +28,34 @@
 <link rel="stylesheet" href="/index.css?v=2">
 </head>
 <body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <img src="/ValPadelLogo.png" alt="ValPadel Logo" class="splash-logo">
+        <h1 class="splash-title">ValPadel</h1>
+        <p class="splash-subtitle">Reserva de Pistas de Pádel</p>
+    </div>
+    
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
+        // Splash Screen functionality
+        window.addEventListener('load', () => {
+            const splashScreen = document.getElementById('splash-screen');
+            
+            // Hide splash screen after 2.5 seconds
+            setTimeout(() => {
+                splashScreen.classList.add('hidden');
+            }, 2500);
+            
+            // Service Worker registration
+            if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('/valpadel/sw-minimal.js').then(registration => {
                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
                 }, err => {
                     console.log('ServiceWorker registration failed: ', err);
                 });
-            });
-        }
+            }
+        });
     </script>
 <script type="module" src="/index.tsx"></script>
 </body>

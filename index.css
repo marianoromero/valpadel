@@ -437,6 +437,92 @@ body {
   background-color: var(--color-bright-lime);
 }
 
+/* Splash Screen */
+.splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  animation: fadeOut 0.5s ease-in-out 2s forwards;
+}
+
+.splash-screen.hidden {
+  display: none;
+}
+
+.splash-logo {
+  max-width: 200px;
+  max-height: 200px;
+  width: auto;
+  height: auto;
+  margin-bottom: 2rem;
+  animation: logoFadeIn 1s ease-in-out;
+}
+
+.splash-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--color-dark-blue);
+  margin-bottom: 1rem;
+  animation: titleSlideUp 1s ease-in-out 0.5s both;
+}
+
+.splash-subtitle {
+  font-size: 1.2rem;
+  color: var(--color-teal);
+  text-align: center;
+  animation: subtitleSlideUp 1s ease-in-out 0.8s both;
+}
+
+@keyframes logoFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes titleSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtitleSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .app-title {
@@ -445,5 +531,18 @@ body {
   .logo-container svg {
     width: 30px;
     height: 30px;
+  }
+  
+  .splash-logo {
+    max-width: 150px;
+    max-height: 150px;
+  }
+  
+  .splash-title {
+    font-size: 1.5rem;
+  }
+  
+  .splash-subtitle {
+    font-size: 1rem;
   }
 }
