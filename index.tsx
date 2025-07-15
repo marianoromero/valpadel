@@ -106,8 +106,162 @@ const EyeIconClosed = () => (
     </svg>
 );
 
+const BurgerIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="4" x2="20" y1="6" y2="6" />
+        <line x1="4" x2="20" y1="12" y2="12" />
+        <line x1="4" x2="20" y1="18" y2="18" />
+    </svg>
+);
+
 
 // --- Components ---
+const SideMenu = ({ isOpen, onClose, bookings, weekDays }: { isOpen: boolean; onClose: () => void; bookings: AllBookings; weekDays: Date[] }) => {
+    const [activeSection, setActiveSection] = useState<'partidos' | 'faq'>('partidos');
+    const [activeFAQ, setActiveFAQ] = useState<number | null>(null);
+
+    const faqData = [
+        {
+            question: "¿Cómo hago una reserva?",
+            answer: "Selecciona el día, luego la pista y finalmente la hora disponible. Rellena el formulario con tu nombre, una clave de 6 dígitos y opcionalmente un comentario."
+        },
+        {
+            question: "¿Puedo cancelar mi reserva?",
+            answer: "Sí, puedes cancelar tu reserva haciendo clic en tu franja horaria reservada e introduciendo la clave de 6 dígitos que usaste al reservar."
+        },
+        {
+            question: "¿Cuándo puedo reservar?",
+            answer: "Puedes reservar para cualquier día de la semana actual. Las reservas están disponibles desde las 9:00 hasta las 22:30."
+        },
+        {
+            question: "¿Qué pasa si olvido mi clave?",
+            answer: "La clave es necesaria para cancelar reservas. Si la olvidas, contacta con el administrador del club para obtener ayuda."
+        },
+        {
+            question: "¿Puedo reservar varias pistas?",
+            answer: "Sí, puedes hacer múltiples reservas seleccionando diferentes horarios y pistas según disponibilidad."
+        }
+    ];
+
+    const getWeeklyBookings = () => {
+        const weeklyBookings: { [date: string]: { court: string; time: string; name: string }[] } = {};
+        
+        weekDays.forEach(day => {
+            const dateKey = formatDateKey(day);
+            const dayBookings = bookings[dateKey];
+            
+            if (dayBookings) {
+                const dayBookingsList: { court: string; time: string; name: string }[] = [];
+                
+                PADEL_COURTS.forEach(court => {
+                    const courtBookings = dayBookings[court];
+                    if (courtBookings) {
+                        Object.entries(courtBookings).forEach(([time, booking]) => {
+                            dayBookingsList.push({ court: `Pista ${court}`, time, name: booking.name });
+                        });
+                    }
+                });
+                
+                if (dayBookingsList.length > 0) {
+                    // Sort by time
+                    dayBookingsList.sort((a, b) => a.time.localeCompare(b.time));
+                    weeklyBookings[dateKey] = dayBookingsList;
+                }
+            }
+        });
+        
+        return weeklyBookings;
+    };
+
+    const weeklyBookings = getWeeklyBookings();
+    const hasBookings = Object.keys(weeklyBookings).length > 0;
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="side-menu-overlay" onClick={onClose}>
+            <div className="side-menu" onClick={e => e.stopPropagation()}>
+                <div className="side-menu-header">
+                    <h2>Menú</h2>
+                    <button className="close-menu-btn" onClick={onClose}>×</button>
+                </div>
+                
+                <div className="side-menu-tabs">
+                    <button 
+                        className={`tab-btn ${activeSection === 'partidos' ? 'active' : ''}`}
+                        onClick={() => setActiveSection('partidos')}
+                    >
+                        Partidos Semana
+                    </button>
+                    <button 
+                        className={`tab-btn ${activeSection === 'faq' ? 'active' : ''}`}
+                        onClick={() => setActiveSection('faq')}
+                    >
+                        FAQ
+                    </button>
+                </div>
+
+                <div className="side-menu-content">
+                    {activeSection === 'partidos' && (
+                        <div className="partidos-section">
+                            {!hasBookings ? (
+                                <div className="no-bookings">
+                                    <p>Aún no hay partidos esta semana, reserva tú el primero! 😉</p>
+                                </div>
+                            ) : (
+                                <div className="weekly-bookings">
+                                    {Object.entries(weeklyBookings).map(([dateKey, dayBookings]) => {
+                                        const date = new Date(dateKey);
+                                        return (
+                                            <div key={dateKey} className="day-bookings">
+                                                <h3 className="day-title">
+                                                    {date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                                </h3>
+                                                <div className="day-bookings-list">
+                                                    {dayBookings.map((booking, index) => (
+                                                        <div key={index} className="booking-item">
+                                                            <span className="booking-time">{booking.time}</span>
+                                                            <span className="booking-court">{booking.court}</span>
+                                                            <span className="booking-name">{booking.name}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeSection === 'faq' && (
+                        <div className="faq-section">
+                            <div className="faq-list">
+                                {faqData.map((faq, index) => (
+                                    <div key={index} className="faq-item">
+                                        <button 
+                                            className={`faq-question ${activeFAQ === index ? 'active' : ''}`}
+                                            onClick={() => setActiveFAQ(activeFAQ === index ? null : index)}
+                                        >
+                                            {faq.question}
+                                            <span className="faq-toggle">{activeFAQ === index ? '−' : '+'}</span>
+                                        </button>
+                                        {activeFAQ === index && (
+                                            <div className="faq-answer">
+                                                <p>{faq.answer}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const InstallPWA = () => {
     const [deferredPrompt, setDeferredPrompt] = useState<any>(null); // BeforeInstallPromptEvent is not in standard lib.d.ts
 
@@ -259,9 +413,22 @@ const TimeSlotView = ({ court, date, bookings, onBook, onBack, onCancelRequest }
                 onClick={() => onCancelRequest({ court, time, date, name: booking.name })}
                 aria-label={`Cancelar reserva a nombre de ${booking.name} a las ${time}`}
             >
-                <span>{time}</span>
-                <span className="booked-name">{booking.name}</span>
-                {booking.comment && <span className="booked-comment">{booking.comment}</span>}
+                {booking.comment ? (
+                    <div className="booking-with-comment">
+                        <div className="booking-left">
+                            <span className="booked-time">{time}</span>
+                            <span className="booked-name">{booking.name}</span>
+                        </div>
+                        <div className="booking-right">
+                            <span className="booked-comment">{booking.comment}</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="booking-no-comment">
+                        <span>{time}</span>
+                        <span className="booked-name">{booking.name}</span>
+                    </div>
+                )}
             </button>
         ) : (
             <button 
@@ -321,6 +488,7 @@ function App() {
     const [cancellationSlot, setCancellationSlot] = useState<CancellationModalData | null>(null);
     const [selectedCourt, setSelectedCourt] = useState<number | null>(null);
     const [infoModalContent, setInfoModalContent] = useState<InfoModalContent | null>(null);
+    const [sideMenuOpen, setSideMenuOpen] = useState(false);
 
     // Convert raw bookings to the format expected by the UI
     const convertBookingsToLegacyFormat = useCallback((bookings: Booking[]): AllBookings => {
@@ -343,41 +511,68 @@ function App() {
         return result;
     }, []);
 
-    // Load bookings from Supabase
+    // Load bookings with realtime listeners and fallback
     useEffect(() => {
-        const loadBookings = async () => {
+        setLoading(true);
+        const startDate = formatDateKey(weekDays[0]);
+        const endDate = formatDateKey(weekDays[weekDays.length - 1]);
+        
+        let isSubscribed = true;
+        let hasReceivedData = false;
+        
+        // Fallback function to load data manually if realtime fails
+        const loadDataFallback = async () => {
             try {
-                setLoading(true);
-                const startDate = formatDateKey(weekDays[0]);
-                const endDate = formatDateKey(weekDays[weekDays.length - 1]);
-                
+                console.log('Attempting fallback data load...');
                 const fetchedBookings = await BookingService.getBookings(startDate, endDate);
-                setBookings(convertBookingsToLegacyFormat(fetchedBookings));
+                if (isSubscribed) {
+                    setBookings(convertBookingsToLegacyFormat(fetchedBookings));
+                    setLoading(false);
+                    hasReceivedData = true;
+                }
             } catch (error) {
-                console.error("Failed to load bookings from Supabase", error);
-                setInfoModalContent({
-                    title: 'Error de Conexión',
-                    message: 'No se pudieron cargar las reservas. Verifica tu conexión a internet.'
-                });
-            } finally {
-                setLoading(false);
+                console.error('Fallback data load failed:', error);
+                if (isSubscribed) {
+                    setInfoModalContent({
+                        title: 'Error de Conexión',
+                        message: 'No se pudieron cargar las reservas. Verifica tu conexión a internet.'
+                    });
+                    setLoading(false);
+                }
             }
         };
 
-        loadBookings();
+        // Set up realtime listener
+        const unsubscribe = BookingService.subscribeToBookings(
+            startDate, 
+            endDate, 
+            (fetchedBookings) => {
+                if (isSubscribed) {
+                    console.log('Realtime data received:', fetchedBookings.length, 'bookings');
+                    setBookings(convertBookingsToLegacyFormat(fetchedBookings));
+                    setLoading(false);
+                    hasReceivedData = true;
+                }
+            }
+        );
+
+        // Set up fallback timeout
+        const fallbackTimeout = setTimeout(() => {
+            if (!hasReceivedData && isSubscribed) {
+                console.log('Realtime listener timeout, using fallback...');
+                loadDataFallback();
+            }
+        }, 5000); // 5 seconds timeout
+
+        return () => {
+            isSubscribed = false;
+            unsubscribe();
+            clearTimeout(fallbackTimeout);
+        };
     }, [weekDays, convertBookingsToLegacyFormat]);
 
-    const refreshBookings = useCallback(async () => {
-        try {
-            const startDate = formatDateKey(weekDays[0]);
-            const endDate = formatDateKey(weekDays[weekDays.length - 1]);
-            
-            const fetchedBookings = await BookingService.getBookings(startDate, endDate);
-            setBookings(convertBookingsToLegacyFormat(fetchedBookings));
-        } catch (error) {
-            console.error("Failed to refresh bookings", error);
-        }
-    }, [weekDays, convertBookingsToLegacyFormat]);
+    // Note: refreshBookings is no longer needed with realtime listeners
+    // Bookings will update automatically when changes occur in Firestore
     
     const selectedDate = weekDays[selectedDayIndex] || weekDays[0];
     const dateKey = formatDateKey(selectedDate);
@@ -396,7 +591,7 @@ function App() {
                 secret_key: bookingDetails.secretKey
             });
             
-            await refreshBookings();
+            // No need to refresh - realtime listener will update automatically
             setModalSlot(null);
             setSelectedCourt(court); // Stay on the court view
             
@@ -411,7 +606,7 @@ function App() {
                 message: error instanceof Error ? error.message : 'No se pudo crear la reserva. Inténtelo de nuevo.'
             });
         }
-    }, [modalSlot, dateKey, refreshBookings]);
+    }, [modalSlot, dateKey]);
 
     const handleCancelBooking = useCallback(async (enteredKey: string) => {
         if (!cancellationSlot) return;
@@ -424,7 +619,7 @@ function App() {
             
             if (bookingToCancel && bookingToCancel.secret_key === enteredKey) {
                 await BookingService.deleteBooking(bookingToCancel.id, enteredKey);
-                await refreshBookings();
+                // No need to refresh - realtime listener will update automatically
                 setCancellationSlot(null);
                 setInfoModalContent({
                     title: 'Reserva Cancelada',
@@ -443,7 +638,7 @@ function App() {
                 message: 'No se pudo cancelar la reserva. Inténtelo de nuevo.'
             });
         }
-    }, [cancellationSlot, refreshBookings]);
+    }, [cancellationSlot]);
 
     const changeDay = (offset: number) => {
         setSelectedDayIndex(prev => {
@@ -463,7 +658,12 @@ function App() {
                     <img src="android-chrome-192x192-no-bg.png" alt="ValPadel Logo" className="logo-img" />
                     <h1 className="app-title">ValPadel</h1>
                 </div>
-                <InstallPWA />
+                <div className="header-right">
+                    <InstallPWA />
+                    <button className="burger-menu-btn" onClick={() => setSideMenuOpen(true)}>
+                        <BurgerIcon />
+                    </button>
+                </div>
             </header>
 
             <main className="main-content">
@@ -516,6 +716,13 @@ function App() {
                     onClose={() => setInfoModalContent(null)}
                 />
             )}
+
+            <SideMenu
+                isOpen={sideMenuOpen}
+                onClose={() => setSideMenuOpen(false)}
+                bookings={bookings}
+                weekDays={weekDays}
+            />
         </div>
     );
 }

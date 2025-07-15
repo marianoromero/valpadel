@@ -7,9 +7,11 @@ import {
   query, 
   where, 
   orderBy,
+  onSnapshot,
   Timestamp,
   DocumentData,
-  QueryDocumentSnapshot 
+  QueryDocumentSnapshot,
+  Unsubscribe 
 } from 'firebase/firestore'
 import { db } from './firebase'
 
@@ -160,5 +162,41 @@ export class BookingService {
   static async isSlotAvailable(court: number, date: string, time: string): Promise<boolean> {
     const booking = await this.findBooking(court, date, time)
     return booking === null
+  }
+
+  // Subscribe to realtime bookings updates
+  static subscribeToBookings(
+    startDate: string, 
+    endDate: string, 
+    callback: (bookings: Booking[]) => void
+  ): Unsubscribe {
+    try {
+      console.log('Setting up realtime subscription for dates:', startDate, 'to', endDate);
+      const bookingsRef = collection(db, this.COLLECTION_NAME)
+      const q = query(
+        bookingsRef,
+        where('date', '>=', startDate),
+        where('date', '<=', endDate),
+        orderBy('date'),
+        orderBy('time')
+      )
+      
+      return onSnapshot(q, 
+        (querySnapshot) => {
+          console.log('Realtime snapshot received, documents:', querySnapshot.size);
+          const bookings = querySnapshot.docs.map(doc => this.docToBooking(doc))
+          callback(bookings)
+        }, 
+        (error) => {
+          console.error('Error in realtime subscription:', error);
+          // Don't call callback with empty array - let the component handle the error
+          // callback([])
+        }
+      )
+    } catch (error) {
+      console.error('Error setting up realtime subscription:', error)
+      // Return a no-op unsubscribe function
+      return () => {}
+    }
   }
 }

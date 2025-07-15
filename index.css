@@ -46,6 +46,29 @@ body {
   flex-shrink: 0;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.burger-menu-btn {
+  background: none;
+  border: none;
+  color: var(--color-white);
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.burger-menu-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 /* Loading styles */
 .loading-container {
   display: flex;
@@ -80,7 +103,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  width: 35px; /* Ancho máximo para el contenedor */
+  width: 25px; /* Ancho máximo para el contenedor */
   
   
 }
@@ -272,10 +295,9 @@ img {
   color: var(--color-white);
   cursor: pointer;
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 0.25rem;
+  min-height: 64px;
 }
 
 .time-slot.booked:hover {
@@ -287,14 +309,59 @@ img {
   font-size: 1.1rem;
 }
 
+/* Booking layout styles */
+.booking-with-comment {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.booking-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+.booking-right {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  justify-content: flex-start;
+}
+
+.booking-no-comment {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.booked-time {
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.booked-name {
+  font-weight: bold;
+  font-size: 1rem;
+}
+
 .booked-comment {
-    font-size: 0.85rem;
-    font-style: italic;
-    color: rgba(255, 255, 255, 0.9);
-    margin-top: 4px;
-    max-width: 90%;
-    overflow-wrap: break-word;
-    line-height: 1.2;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: left;
+  overflow-wrap: break-word;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 
@@ -553,5 +620,263 @@ img {
   
   .splash-subtitle {
     font-size: 1rem;
+  }
+}
+
+/* Side Menu Styles */
+.side-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+}
+
+.side-menu {
+  background-color: var(--color-white);
+  width: 320px;
+  max-width: 90vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.side-menu-header {
+  background-color: var(--color-dark-blue);
+  color: var(--color-white);
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.side-menu-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.close-menu-btn {
+  background: none;
+  border: none;
+  color: var(--color-white);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-menu-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.side-menu-tabs {
+  display: flex;
+  background-color: var(--color-light-gray);
+  border-bottom: 1px solid var(--color-gray);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-dark-gray);
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-btn.active {
+  background-color: var(--color-white);
+  color: var(--color-teal);
+  border-bottom-color: var(--color-teal);
+}
+
+.tab-btn:hover:not(.active) {
+  background-color: rgba(0, 92, 83, 0.1);
+}
+
+.side-menu-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+/* Partidos Section */
+.partidos-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.no-bookings {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--color-teal);
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.weekly-bookings {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.day-bookings {
+  border-bottom: 1px solid var(--color-gray);
+  padding-bottom: 1rem;
+}
+
+.day-bookings:last-child {
+  border-bottom: none;
+}
+
+.day-title {
+  color: var(--color-teal);
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+  text-transform: capitalize;
+}
+
+.day-bookings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.booking-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background-color: var(--color-light-gray);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.booking-item .booking-time {
+  font-weight: bold;
+  color: var(--color-terracotta);
+  min-width: 50px;
+}
+
+.booking-item .booking-court {
+  color: var(--color-teal);
+  font-weight: 500;
+  min-width: 60px;
+}
+
+.booking-item .booking-name {
+  color: var(--color-dark-gray);
+  flex-grow: 1;
+}
+
+/* FAQ Section */
+.faq-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.faq-item {
+  border: 1px solid var(--color-gray);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.faq-question {
+  width: 100%;
+  background-color: var(--color-light-gray);
+  border: none;
+  padding: 1rem;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-dark-gray);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.faq-question:hover {
+  background-color: var(--color-gray);
+}
+
+.faq-question.active {
+  background-color: var(--color-teal);
+  color: var(--color-white);
+}
+
+.faq-toggle {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--color-teal);
+}
+
+.faq-question.active .faq-toggle {
+  color: var(--color-white);
+}
+
+.faq-answer {
+  padding: 1rem;
+  background-color: var(--color-white);
+  border-top: 1px solid var(--color-gray);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.faq-answer p {
+  margin: 0;
+  color: var(--color-dark-gray);
+  line-height: 1.5;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments for side menu */
+@media (max-width: 768px) {
+  .side-menu {
+    width: 280px;
+  }
+  
+  .burger-menu-btn {
+    padding: 0.25rem;
   }
 }
