@@ -80,7 +80,16 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  width: 50px; /* Ancho máximo para el contenedor */
+  
+  
 }
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block; /* Opcional: Elimina espacio extra debajo de la imagen */
+  }
 
 .logo-container svg {
   width: 40px;
