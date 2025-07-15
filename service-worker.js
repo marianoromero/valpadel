@@ -1,14 +1,12 @@
-const CACHE_NAME = 'valpadel-cache-v1';
+const CACHE_NAME = 'valpadel-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
   '/index.css',
-  '/index.tsx',
-  '/logo.svg',
+  '/ValPadelLogo.png',
   '/logo192.png',
   '/logo512.png',
-  'https://esm.sh/react@^19.0.0',
-  'https://esm.sh/react-dom@^19.0.0/client'
+  '/manifest.json'
 ];
 
 self.addEventListener('install', event => {
@@ -25,15 +23,25 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
+        // Return cached version if available
         if (response) {
           return response;
         }
+
+        // For navigation requests, always return index.html (SPA behavior)
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+
+        // For other requests, try to fetch from network
         return fetch(event.request).then(
           response => {
+            // Don't cache non-successful responses
             if(!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
 
+            // Clone and cache the response
             const responseToCache = response.clone();
             caches.open(CACHE_NAME)
               .then(cache => {
@@ -41,7 +49,12 @@ self.addEventListener('fetch', event => {
               });
             return response;
           }
-        );
+        ).catch(() => {
+          // If network fails and it's a navigation request, return index.html
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+        });
       })
     );
 });
