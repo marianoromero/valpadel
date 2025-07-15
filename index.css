@@ -80,7 +80,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  width: 50px; /* Ancho máximo para el contenedor */
+  width: 35px; /* Ancho máximo para el contenedor */
   
   
 }
