@@ -460,7 +460,7 @@ function App() {
         <div className="app-container">
             <header className="header">
                 <div className="logo-container">
-                    <img src="/favicon_io/android-chrome-192x192-no-bg.png" alt="ValPadel Logo" className="logo-img" />
+                    <img src="android-chrome-192x192-no-bg.png" alt="ValPadel Logo" className="logo-img" />
                     <h1 className="app-title">ValPadel</h1>
                 </div>
                 <InstallPWA />
