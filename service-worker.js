@@ -1,12 +1,13 @@
-const CACHE_NAME = 'valpadel-cache-v2';
+const CACHE_NAME = 'valpadel-cache-v3';
+const BASE_URL = self.location.pathname.includes('/valpadel/') ? '/valpadel/' : '/';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/index.css',
-  '/ValPadelLogo.png',
-  '/logo192.png',
-  '/logo512.png',
-  '/manifest.json'
+  BASE_URL,
+  BASE_URL + 'index.html',
+  BASE_URL + 'index.css',
+  BASE_URL + 'ValPadelLogo.png',
+  BASE_URL + 'logo192.png',
+  BASE_URL + 'logo512.png',
+  BASE_URL + 'manifest.json'
 ];
 
 self.addEventListener('install', event => {
@@ -30,7 +31,7 @@ self.addEventListener('fetch', event => {
 
         // For navigation requests, always return index.html (SPA behavior)
         if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
+          return caches.match(BASE_URL + 'index.html');
         }
 
         // For other requests, try to fetch from network
@@ -52,7 +53,7 @@ self.addEventListener('fetch', event => {
         ).catch(() => {
           // If network fails and it's a navigation request, return index.html
           if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
+            return caches.match(BASE_URL + 'index.html');
           }
         });
       })
