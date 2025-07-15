@@ -13,8 +13,8 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "https://marianoromero.github.io/valpadel/",
+  "scope": "https://marianoromero.github.io/valpadel/",
   "display": "standalone",
   "theme_color": "#042940",
   "background_color": "#f4f4f4",
