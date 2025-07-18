@@ -2,6 +2,7 @@ import {
   collection, 
   doc, 
   getDocs, 
+  getDoc,
   addDoc, 
   deleteDoc, 
   query, 
@@ -72,6 +73,7 @@ export class BookingService {
     try {
       // Check if slot is already booked
       const existingBooking = await this.findBooking(booking.court, booking.date, booking.time)
+      
       if (existingBooking) {
         throw new Error('Esta pista ya está reservada para ese horario')
       }
@@ -129,6 +131,7 @@ export class BookingService {
       )
       
       const querySnapshot = await getDocs(q)
+      
       if (querySnapshot.empty) {
         return null
       }
@@ -143,15 +146,24 @@ export class BookingService {
   // Get booking by ID
   static async getBookingById(id: string): Promise<Booking | null> {
     try {
-      const bookingsRef = collection(db, this.COLLECTION_NAME)
-      const q = query(bookingsRef, where('__name__', '==', id))
+      const docRef = doc(db, this.COLLECTION_NAME, id)
+      const docSnap = await getDoc(docRef)
       
-      const querySnapshot = await getDocs(q)
-      if (querySnapshot.empty) {
+      if (!docSnap.exists()) {
         return null
       }
       
-      return this.docToBooking(querySnapshot.docs[0])
+      const data = docSnap.data()
+      return {
+        id: docSnap.id,
+        court: data.court,
+        date: data.date,
+        time: data.time,
+        name: data.name,
+        comment: data.comment || '',
+        secret_key: data.secret_key,
+        created_at: data.created_at?.toDate() || new Date()
+      }
     } catch (error) {
       console.error('Error getting booking by ID:', error)
       return null
@@ -171,7 +183,6 @@ export class BookingService {
     callback: (bookings: Booking[]) => void
   ): Unsubscribe {
     try {
-      console.log('Setting up realtime subscription for dates:', startDate, 'to', endDate);
       const bookingsRef = collection(db, this.COLLECTION_NAME)
       const q = query(
         bookingsRef,
@@ -183,19 +194,15 @@ export class BookingService {
       
       return onSnapshot(q, 
         (querySnapshot) => {
-          console.log('Realtime snapshot received, documents:', querySnapshot.size);
           const bookings = querySnapshot.docs.map(doc => this.docToBooking(doc))
           callback(bookings)
         }, 
         (error) => {
-          console.error('Error in realtime subscription:', error);
-          // Don't call callback with empty array - let the component handle the error
-          // callback([])
+          console.error('Error in realtime subscription:', error)
         }
       )
     } catch (error) {
       console.error('Error setting up realtime subscription:', error)
-      // Return a no-op unsubscribe function
       return () => {}
     }
   }

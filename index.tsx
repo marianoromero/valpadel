@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BookingService, type Booking } from './lib/bookingService';
+import { FAQService, type FAQ } from './lib/faqService';
 
 // --- Type Definitions ---
 interface BookingDetails {
@@ -65,7 +66,10 @@ const getWeekDays = (): Date[] => {
 };
 
 const formatDateKey = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 const Logo = () => (
@@ -116,37 +120,67 @@ const BurgerIcon = () => (
 
 
 // --- Components ---
-const SideMenu = ({ isOpen, onClose, bookings, weekDays }: { isOpen: boolean; onClose: () => void; bookings: AllBookings; weekDays: Date[] }) => {
+const SideMenu = ({ isOpen, onClose, bookings, weekDays, onCancelRequest }: { isOpen: boolean; onClose: () => void; bookings: AllBookings; weekDays: Date[]; onCancelRequest: (data: CancellationModalData) => void }) => {
     const [activeSection, setActiveSection] = useState<'partidos' | 'faq'>('partidos');
     const [activeFAQ, setActiveFAQ] = useState<number | null>(null);
+    const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
+    const [faqs, setFaqs] = useState<FAQ[]>([]);
+    
+    console.log('SideMenu render - isOpen:', isOpen);
 
-    const faqData = [
-        {
-            question: "¿Cómo hago una reserva?",
-            answer: "Selecciona el día, luego la pista y finalmente la hora disponible. Rellena el formulario con tu nombre, una clave de 6 dígitos y opcionalmente un comentario."
-        },
-        {
-            question: "¿Puedo cancelar mi reserva?",
-            answer: "Sí, puedes cancelar tu reserva haciendo clic en tu franja horaria reservada e introduciendo la clave de 6 dígitos que usaste al reservar."
-        },
-        {
-            question: "¿Cuándo puedo reservar?",
-            answer: "Las reservas de cada semana se abren cada lunes a las 00:00. Puedes reservar para cualquier día de la semana actual. Las franjas de reservas van desde las 9:00 hasta las 22:30."
-        },
-        {
-            question: "¿Qué pasa si olvido mi clave?",
-            answer: "La clave es necesaria para cancelar reservas. Si la olvidas y quieres cancelar, intenta comunicarlo en los grupos de Whatsapp de pádel de la comunidad."
+    // Subscribe to FAQs
+    useEffect(() => {
+        const unsubscribe = FAQService.subscribeToFAQs((fetchedFaqs) => {
+            setFaqs(fetchedFaqs);
+        });
 
-        },
-        {
-            question: "¿Puedo reservar dos franjas seguidas de una pista?",
-            answer: "Como poder, la aplicación lo permite, pero no es lo ideal. Excepcionalmente en épocas de calor, si quieres empezar a las 20:00 en vez de a las 19:30 por ejemplo, reserva a las 19:30 y deja un comentario avisando que comienzas a las 20:00 (siempre y cuando la franja de las 21:00 no esté ya reservada en ese momento)."
-        },
-          {
-            question: "Quiero reservar todos los Martes a las 21:00, ¿no puedo?",
-            answer: "No de forma automática. Tendrás que hacer una nueva reserva cada semana."
+        return () => unsubscribe();
+    }, []);
+
+    const checkForUpdates = async () => {
+        setIsCheckingUpdate(true);
+        setToastMessage(null);
+        setShowUpdateConfirm(false);
+        
+        try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                const registration = await navigator.serviceWorker.ready;
+                await registration.update();
+                
+                // Check if there's a new service worker waiting
+                if (registration.waiting) {
+                    setShowUpdateConfirm(true);
+                } else {
+                    setToastMessage('✅ Tienes la última versión instalada');
+                    setTimeout(() => setToastMessage(null), 3000);
+                }
+            } else {
+                setToastMessage('✅ Tienes la última versión instalada');
+                setTimeout(() => setToastMessage(null), 3000);
+            }
+        } catch (error) {
+            console.error('Error checking for updates:', error);
+            setToastMessage('❌ Error al verificar actualizaciones');
+            setTimeout(() => setToastMessage(null), 3000);
+        } finally {
+            setIsCheckingUpdate(false);
         }
-    ];
+    };
+
+    const handleUpdateApp = () => {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then(registration => {
+                if (registration.waiting) {
+                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    window.location.reload();
+                }
+            });
+        }
+        setShowUpdateConfirm(false);
+    };
+
 
     const getWeeklyBookings = () => {
         const weeklyBookings: { [date: string]: { court: string; time: string; name: string }[] } = {};
@@ -162,7 +196,7 @@ const SideMenu = ({ isOpen, onClose, bookings, weekDays }: { isOpen: boolean; on
                     const courtBookings = dayBookings[court];
                     if (courtBookings) {
                         Object.entries(courtBookings).forEach(([time, booking]) => {
-                            dayBookingsList.push({ court: `Pista ${court}`, time, name: booking.name });
+                            dayBookingsList.push({ court: court.toString(), time, name: booking.name });
                         });
                     }
                 });
@@ -211,12 +245,14 @@ const SideMenu = ({ isOpen, onClose, bookings, weekDays }: { isOpen: boolean; on
                         <div className="partidos-section">
                             {!hasBookings ? (
                                 <div className="no-bookings">
-                                    <p>Aún no hay partidos esta semana, reserva tú el primero! 😉</p>
+                                    <p>Aún no hay partidos esta semana, haz tu la primera reserva! 😉</p>
                                 </div>
                             ) : (
                                 <div className="weekly-bookings">
                                     {Object.entries(weeklyBookings).map(([dateKey, dayBookings]) => {
-                                        const date = new Date(dateKey);
+                                        // Parse date correctly to avoid timezone issues
+                                        const [year, month, day] = dateKey.split('-').map(Number);
+                                        const date = new Date(year, month - 1, day);
                                         return (
                                             <div key={dateKey} className="day-bookings">
                                                 <h3 className="day-title">
@@ -224,11 +260,21 @@ const SideMenu = ({ isOpen, onClose, bookings, weekDays }: { isOpen: boolean; on
                                                 </h3>
                                                 <div className="day-bookings-list">
                                                     {dayBookings.map((booking, index) => (
-                                                        <div key={index} className="booking-item">
+                                                        <button 
+                                                            key={index} 
+                                                            className="booking-item clickable-booking"
+                                                            onClick={() => onCancelRequest({ 
+                                                                court: parseInt(booking.court), 
+                                                                time: booking.time, 
+                                                                date: date, 
+                                                                name: booking.name 
+                                                            })}
+                                                            title="Haz clic para cancelar esta reserva"
+                                                        >
                                                             <span className="booking-time">{booking.time}</span>
-                                                            <span className="booking-court">{booking.court}</span>
+                                                            <span className="booking-court">Pista {booking.court}</span>
                                                             <span className="booking-name">{booking.name}</span>
-                                                        </div>
+                                                        </button>
                                                     ))}
                                                 </div>
                                             </div>
@@ -242,8 +288,8 @@ const SideMenu = ({ isOpen, onClose, bookings, weekDays }: { isOpen: boolean; on
                     {activeSection === 'faq' && (
                         <div className="faq-section">
                             <div className="faq-list">
-                                {faqData.map((faq, index) => (
-                                    <div key={index} className="faq-item">
+                                {faqs.map((faq, index) => (
+                                    <div key={faq.id} className="faq-item">
                                         <button 
                                             className={`faq-question ${activeFAQ === index ? 'active' : ''}`}
                                             onClick={() => setActiveFAQ(activeFAQ === index ? null : index)}
@@ -261,6 +307,52 @@ const SideMenu = ({ isOpen, onClose, bookings, weekDays }: { isOpen: boolean; on
                             </div>
                         </div>
                     )}
+                </div>
+                
+                {/* Update Toast */}
+                {toastMessage && (
+                    <div className="update-toast">
+                        {toastMessage}
+                    </div>
+                )}
+
+                {/* Update Confirmation */}
+                {showUpdateConfirm && (
+                    <div className="update-confirmation">
+                        <div className="update-confirmation-content">
+                            <p>🔄 Hay una nueva versión disponible</p>
+                            <div className="update-confirmation-actions">
+                                <button 
+                                    onClick={() => setShowUpdateConfirm(false)}
+                                    className="update-cancel-btn"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    onClick={handleUpdateApp}
+                                    className="update-confirm-btn"
+                                >
+                                    Actualizar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Version Footer */}
+                <div className="version-footer">
+                    <div className="update-check-link">
+                        <button 
+                            onClick={checkForUpdates}
+                            disabled={isCheckingUpdate}
+                            className="update-check-button"
+                        >
+                            {isCheckingUpdate ? 'Verificando...' : '¿Última versión?'}
+                        </button>
+                    </div>
+                    <div className="version-text">
+                        Versión 1.2.0 :: 16/07/2025
+                    </div>
                 </div>
             </div>
         </div>
@@ -351,7 +443,7 @@ const BookingModal = ({ slot, onBook, onClose }: { slot: ModalSlot | null, onBoo
     );
 };
 
-const CancellationModal = ({ slot, onCancel, onClose }: { slot: CancellationModalData | null, onCancel: (secretKey: string) => void, onClose: () => void }) => {
+const CancellationModal = ({ slot, onCancel, onClose, isFromSidebar }: { slot: CancellationModalData | null, onCancel: (secretKey: string) => void, onClose: () => void, isFromSidebar?: boolean }) => {
     const [secretKey, setSecretKey] = useState('');
     const [isKeyVisible, setIsKeyVisible] = useState(false);
 
@@ -364,6 +456,46 @@ const CancellationModal = ({ slot, onCancel, onClose }: { slot: CancellationModa
     };
 
     if (!slot) return null;
+
+    if (isFromSidebar) {
+        return (
+            <div className="sidebar-modal-overlay">
+                <div className="sidebar-modal-content" onClick={e => e.stopPropagation()}>
+                    <h2>Cancelar Reserva</h2>
+                    <p>Está a punto de cancelar la reserva para:</p>
+                    <p><strong>Día:</strong> {slot.date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                    <p><strong>Hora:</strong> {slot.time} en Pista {slot.court}</p>
+                    <p><strong>A nombre de:</strong> {slot.name}</p>
+                    <form onSubmit={handleSubmit}>
+                        <div className="modal-form-group">
+                            <label>Ingrese su clave de 6 dígitos:</label>
+                            <div className="secret-key-input">
+                                <input
+                                    type={isKeyVisible ? 'text' : 'password'}
+                                    value={secretKey}
+                                    onChange={(e) => setSecretKey(e.target.value)}
+                                    maxLength={6}
+                                    placeholder="123456"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsKeyVisible(!isKeyVisible)}
+                                    className="toggle-key-btn"
+                                >
+                                    {isKeyVisible ? <EyeIconClosed /> : <EyeIconOpen />}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="modal-actions">
+                            <button type="button" className="cancel-btn" onClick={onClose}>Cancelar</button>
+                            <button type="submit" className="delete-btn">Eliminar Reserva</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -406,44 +538,63 @@ const InfoModal = ({ content, onClose }: { content: InfoModalContent, onClose: (
 );
 
 
+
 const TimeSlotView = ({ court, date, bookings, onBook, onBack, onCancelRequest }: { court: number; date: Date; bookings: AllBookings; onBook: (slot: Omit<ModalSlot, 'date'>) => void; onBack: () => void; onCancelRequest: (data: CancellationModalData) => void; }) => {
     const dailyBookings = bookings[formatDateKey(date)] || {};
+    
+    console.log('=== TimeSlotView Debug ===');
+    console.log('Selected court:', court, 'type:', typeof court);
+    console.log('Date key:', formatDateKey(date));
+    console.log('All bookings:', bookings);
+    console.log('Daily bookings for this date:', dailyBookings);
+    console.log('Available courts in daily bookings:', Object.keys(dailyBookings));
 
     const renderTimeSlot = (time: string) => {
-        const booking = dailyBookings[String(court)]?.[time];
-        return booking ? (
-            <button 
-                key={time} 
-                className="time-slot booked"
-                onClick={() => onCancelRequest({ court, time, date, name: booking.name })}
-                aria-label={`Cancelar reserva a nombre de ${booking.name} a las ${time}`}
-            >
-                {booking.comment ? (
-                    <div className="booking-with-comment">
-                        <div className="booking-left">
-                            <span className="booked-time">{time}</span>
+        const courtKey = String(court);
+        const booking = dailyBookings[courtKey]?.[time];
+        console.log(`Time ${time} - Looking for court ${court} (key: "${courtKey}"):`, booking);
+        console.log('Daily bookings structure:', dailyBookings);
+        console.log('Final booking result:', booking ? 'FOUND' : 'NOT FOUND');
+        
+        if (booking) {
+            console.log('Rendering BOOKED button for', time);
+            return (
+                <button 
+                    key={time} 
+                    className="time-slot booked"
+                    onClick={() => onCancelRequest({ court, time, date, name: booking.name })}
+                    aria-label={`Cancelar reserva a nombre de ${booking.name} a las ${time}`}
+                >
+                    {booking.comment ? (
+                        <div className="booking-with-comment">
+                            <div className="booking-left">
+                                <span className="booked-time">{time}</span>
+                                <span className="booked-name">{booking.name}</span>
+                            </div>
+                            <div className="booking-right">
+                                <span className="booked-comment">{booking.comment}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="booking-no-comment">
+                            <span>{time}</span>
                             <span className="booked-name">{booking.name}</span>
                         </div>
-                        <div className="booking-right">
-                            <span className="booked-comment">{booking.comment}</span>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="booking-no-comment">
-                        <span>{time}</span>
-                        <span className="booked-name">{booking.name}</span>
-                    </div>
-                )}
-            </button>
-        ) : (
-            <button 
-                key={time} 
-                className="time-slot available"
-                onClick={() => onBook({ court, time })}
-            >
-                {time}
-            </button>
-        );
+                    )}
+                </button>
+            );
+        } else {
+            console.log('Rendering AVAILABLE button for', time);
+            return (
+                <button 
+                    key={time} 
+                    className="time-slot available"
+                    onClick={() => onBook({ court, time })}
+                >
+                    {time}
+                </button>
+            );
+        }
     };
 
     const morningSlots = TIME_SLOTS.filter(t => MORNING_SLOTS.includes(t));
@@ -491,28 +642,43 @@ function App() {
     const [loading, setLoading] = useState(true);
     const [modalSlot, setModalSlot] = useState<ModalSlot | null>(null);
     const [cancellationSlot, setCancellationSlot] = useState<CancellationModalData | null>(null);
+    const [isCancellationFromSidebar, setIsCancellationFromSidebar] = useState(false);
     const [selectedCourt, setSelectedCourt] = useState<number | null>(null);
     const [infoModalContent, setInfoModalContent] = useState<InfoModalContent | null>(null);
     const [sideMenuOpen, setSideMenuOpen] = useState(false);
 
     // Convert raw bookings to the format expected by the UI
     const convertBookingsToLegacyFormat = useCallback((bookings: Booking[]): AllBookings => {
+        console.log('=== Converting Bookings ===');
+        console.log('Raw bookings from Firestore:', bookings);
+        
         const result: AllBookings = {};
         
         bookings.forEach(booking => {
+            console.log('Processing booking:', {
+                id: booking.id,
+                court: booking.court,
+                courtType: typeof booking.court,
+                date: booking.date,
+                time: booking.time,
+                name: booking.name
+            });
+            
             if (!result[booking.date]) {
                 result[booking.date] = {};
             }
-            if (!result[booking.date][booking.court]) {
-                result[booking.date][booking.court] = {};
+            const courtKey = String(booking.court);
+            if (!result[booking.date][courtKey]) {
+                result[booking.date][courtKey] = {};
             }
-            result[booking.date][booking.court][booking.time] = {
+            result[booking.date][courtKey][booking.time] = {
                 name: booking.name,
                 comment: booking.comment || '',
                 secretKey: booking.secret_key
             };
         });
         
+        console.log('Final converted result:', result);
         return result;
     }, []);
 
@@ -619,18 +785,34 @@ function App() {
         const { date, court, time } = cancellationSlot;
         const keyForDate = formatDateKey(date);
         
+        console.log('=== Cancellation Debug ===');
+        console.log('Cancellation data:', { court, time, keyForDate, enteredKey });
+        
         try {
             const bookingToCancel = await BookingService.findBooking(court, keyForDate, time);
+            console.log('Found booking to cancel:', bookingToCancel);
             
-            if (bookingToCancel && bookingToCancel.secret_key === enteredKey) {
+            if (!bookingToCancel) {
+                setInfoModalContent({
+                    title: 'Reserva No Encontrada',
+                    message: 'No se pudo encontrar la reserva a cancelar.'
+                });
+                return;
+            }
+
+            console.log('Comparing keys - entered:', enteredKey, 'stored:', bookingToCancel.secret_key);
+            
+            if (bookingToCancel.secret_key === enteredKey) {
+                console.log('Keys match, proceeding with deletion...');
                 await BookingService.deleteBooking(bookingToCancel.id, enteredKey);
-                // No need to refresh - realtime listener will update automatically
+                console.log('Booking deleted successfully');
                 setCancellationSlot(null);
                 setInfoModalContent({
                     title: 'Reserva Cancelada',
                     message: 'Su reserva ha sido cancelada correctamente, gracias'
                 });
             } else {
+                console.log('Keys do not match');
                 setInfoModalContent({
                     title: 'Clave Incorrecta',
                     message: 'Su clave es incorrecta, la reserva no ha podido ser cancelada'
@@ -656,16 +838,26 @@ function App() {
         });
     };
 
+    const handleSidebarCancelRequest = (data: CancellationModalData) => {
+        setIsCancellationFromSidebar(true);
+        setCancellationSlot(data);
+    };
+
+
     return (
         <div className="app-container">
             <header className="header">
                 <div className="logo-container">
-                    <img src="android-chrome-192x192-no-bg.png" alt="ValPadel Logo" className="logo-img" />
+                    <img src="/android-chrome-192x192-no-bg.png" alt="ValPadel Logo" className="logo-img" />
                     <h1 className="app-title">ValPadel</h1>
                 </div>
                 <div className="header-right">
                     <InstallPWA />
-                    <button className="burger-menu-btn" onClick={() => setSideMenuOpen(true)}>
+                    <button className="burger-menu-btn" onClick={() => {
+                        console.log('Burger menu clicked, current state:', sideMenuOpen);
+                        setSideMenuOpen(true);
+                        console.log('Side menu should be opening...');
+                    }}>
                         <BurgerIcon />
                     </button>
                 </div>
@@ -711,7 +903,11 @@ function App() {
                 <CancellationModal
                     slot={cancellationSlot}
                     onCancel={handleCancelBooking}
-                    onClose={() => setCancellationSlot(null)}
+                    onClose={() => {
+                        setCancellationSlot(null);
+                        setIsCancellationFromSidebar(false);
+                    }}
+                    isFromSidebar={isCancellationFromSidebar}
                 />
             )}
             
@@ -727,6 +923,7 @@ function App() {
                 onClose={() => setSideMenuOpen(false)}
                 bookings={bookings}
                 weekDays={weekDays}
+                onCancelRequest={handleSidebarCancelRequest}
             />
         </div>
     );

@@ -11,12 +11,20 @@ service cloud.firestore {
         && resource == null
         && isValidBooking(request.resource.data);
       
-      // Allow delete only if the secret_key matches
-      allow delete: if request.auth == null 
-        && resource.data.secret_key == request.resource.data.secret_key;
+      // Allow delete for anyone (key validation happens in app logic)
+      allow delete: if request.auth == null;
       
       // Prevent updates (bookings should only be created or deleted)
       allow update: if false;
+    }
+    
+    // Rules for FAQs collection
+    match /faqs/{faqId} {
+      // Allow read access to all users
+      allow read: if true;
+      
+      // Allow create, update, delete without auth (for admin purposes)
+      allow create, update, delete: if true;
     }
     
     // Helper function to validate booking data
